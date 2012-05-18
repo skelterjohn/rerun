@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/howeyc/fsnotify"
 	"go/build"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
-	"time"
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
@@ -58,6 +58,29 @@ func run(binName, binPath string, args []string) (runch chan bool) {
 	return
 }
 
+func getWatcher(buildpath string) (watcher *fsnotify.Watcher, err error) {
+	watcher, err = fsnotify.NewWatcher()
+	addToWatcher(watcher, buildpath, map[string]bool{})
+	return
+}
+
+func addToWatcher(watcher *fsnotify.Watcher, importpath string, watching map[string]bool) {
+	pkg, err := build.Import(importpath, "", 0)
+	if err != nil {
+		return
+	}
+	if pkg.Goroot {
+		return
+	}
+	watcher.Watch(pkg.Dir)
+	watching[importpath] = true
+	for _, imp := range pkg.Imports {
+		if !watching[imp] {
+			addToWatcher(watcher, imp, watching)
+		}
+	}
+}
+
 func rerun(buildpath string, args []string) (err error) {
 	log.Printf("setting up rerun for %s %v", buildpath, args)
 
@@ -81,18 +104,31 @@ func rerun(buildpath string, args []string) (err error) {
 		runch <- true
 	}
 
+	watcher, err := getWatcher(buildpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for {
+		we := <-watcher.Event
 		var installed bool
 		installed, errorOutput, _ = install(buildpath, errorOutput)
 		if installed {
+			log.Print(we.Name)
 			runch <- true
+			/* rescan */
+			// watcher.Close()
+			// watcher, err = getWatcher(buildpath)
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
 		}
-		time.Sleep(1e9)
 	}
 	return
 }
 
 func main() {
+	log.SetPrefix("rerun ")
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: rerun <import path> [arg]*")
 	}
