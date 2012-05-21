@@ -82,7 +82,7 @@ func addToWatcher(watcher *fsnotify.Watcher, importpath string, watching map[str
 }
 
 func rerun(buildpath string, args []string) (err error) {
-	log.Printf("setting up rerun for %s %v", buildpath, args)
+	log.Printf("setting up %s %v", buildpath, args)
 
 	pkg, err := build.Import(buildpath, "", 0)
 	if err != nil {
@@ -91,6 +91,7 @@ func rerun(buildpath string, args []string) (err error) {
 
 	if pkg.Name != "main" {
 		err = errors.New(fmt.Sprintf("expected package %q, got %q", "main", pkg.Name))
+		return
 	}
 
 	_, binName := path.Split(buildpath)
@@ -104,9 +105,10 @@ func rerun(buildpath string, args []string) (err error) {
 		runch <- true
 	}
 
-	watcher, err := getWatcher(buildpath)
+	var watcher *fsnotify.Watcher
+	watcher, err = getWatcher(buildpath)
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 
 	for {
@@ -116,19 +118,23 @@ func rerun(buildpath string, args []string) (err error) {
 		if installed {
 			log.Print(we.Name)
 			runch <- true
+			watcher.Close()
+			/* empty the buffer */
+			for _ = range watcher.Event {
+
+			}
 			/* rescan */
-			// watcher.Close()
-			// watcher, err = getWatcher(buildpath)
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
+			log.Println("rescanning")
+			watcher, err = getWatcher(buildpath)
+			if err != nil {
+				return
+			}
 		}
 	}
 	return
 }
 
 func main() {
-	log.SetPrefix("rerun ")
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: rerun <import path> [arg]*")
 	}
