@@ -120,9 +120,14 @@ func rerun(buildpath string, args []string) (err error) {
 			runch <- true
 			watcher.Close()
 			/* empty the buffer */
-			for _ = range watcher.Event {
+			go func(events chan *fsnotify.FileEvent, errors chan error) {
+				for _ = range events {
 
-			}
+				}
+				for _ = range errors {
+
+				}
+			}(watcher.Event, watcher.Error)
 			/* rescan */
 			log.Println("rescanning")
 			watcher, err = getWatcher(buildpath)
