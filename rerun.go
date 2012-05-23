@@ -112,7 +112,7 @@ func rerun(buildpath string, args []string) (err error) {
 	}
 
 	for {
-		we := <-watcher.Event
+		we, _ := <-watcher.Event
 		var installed bool
 		installed, errorOutput, _ = install(buildpath, errorOutput)
 		if installed {
@@ -120,14 +120,16 @@ func rerun(buildpath string, args []string) (err error) {
 			runch <- true
 			watcher.Close()
 			/* empty the buffer */
-			go func(events chan *fsnotify.FileEvent, errors chan error) {
+			go func(events chan *fsnotify.FileEvent) {
 				for _ = range events {
 
 				}
+			}(watcher.Event)
+			go func(errors chan error) {
 				for _ = range errors {
 
 				}
-			}(watcher.Event, watcher.Error)
+			}(watcher.Error)
 			/* rescan */
 			log.Println("rescanning")
 			watcher, err = getWatcher(buildpath)
