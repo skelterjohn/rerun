@@ -14,7 +14,7 @@ import (
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
-	cmdline := []string{"go", "install", "-v", buildpath}
+	cmdline := []string{"go", "get", "-v", buildpath}
 
 	cmd := exec.Command("go", cmdline[1:]...)
 	bufOut := bytes.NewBuffer([]byte{})
