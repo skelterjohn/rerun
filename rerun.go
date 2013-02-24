@@ -51,7 +51,10 @@ func run(binName, binPath string, args []string) (runch chan bool) {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			log.Print(cmdline)
-			cmd.Start()
+			err := cmd.Start()
+			if err != nil {
+				log.Printf("error on starting process: '%s'\n", err)
+			}
 			proc = cmd.Process
 		}
 	}()
@@ -95,7 +98,12 @@ func rerun(buildpath string, args []string) (err error) {
 	}
 
 	_, binName := path.Split(buildpath)
-	binPath := filepath.Join(pkg.BinDir, binName)
+	var binPath string
+	if gobin := os.Getenv("GOBIN"); gobin != "" {
+		binPath = filepath.Join(gobin, binName)
+	} else {
+		binPath = filepath.Join(pkg.BinDir, binName)
+	}
 
 	runch := run(binName, binPath, args)
 
