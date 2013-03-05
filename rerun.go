@@ -85,7 +85,7 @@ func addToWatcher(watcher *fsnotify.Watcher, importpath string, watching map[str
 }
 
 func rerun(buildpath string, args []string) (err error) {
-	log.Printf("setting up %s %v", buildpath, args)
+	log.Printf("setting up %s %v GJ edition", buildpath, args)
 
 	pkg, err := build.Import(buildpath, "", 0)
 	if err != nil {
@@ -120,30 +120,35 @@ func rerun(buildpath string, args []string) (err error) {
 	}
 
 	for {
+		// read event from the watcher
 		we, _ := <-watcher.Event
 		var installed bool
 		installed, errorOutput, _ = install(buildpath, errorOutput)
 		if installed {
 			log.Print(we.Name)
+			// re-build and re-run the application
 			runch <- true
+			// close the watcher
 			watcher.Close()
-			/* empty the buffer */
+			// to clean things up: read events from the watcher until events chan is closed.
 			go func(events chan *fsnotify.FileEvent) {
 				for _ = range events {
 
 				}
 			}(watcher.Event)
-			go func(errors chan error) {
-				for _ = range errors {
-
-				}
-			}(watcher.Error)
-			/* rescan */
+			// create a new watcher
 			log.Println("rescanning")
 			watcher, err = getWatcher(buildpath)
 			if err != nil {
 				return
 			}
+			// we don't need the errors from the new watcher.
+			// therfore we continiously discard them from the channel to avoid a deadlock.
+			go func(errors chan error) {
+				for _ = range errors {
+
+				}
+			}(watcher.Error)
 		}
 	}
 	return
