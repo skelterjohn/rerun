@@ -85,7 +85,7 @@ func addToWatcher(watcher *fsnotify.Watcher, importpath string, watching map[str
 }
 
 func rerun(buildpath string, args []string) (err error) {
-	log.Printf("setting up %s %v GJ edition", buildpath, args)
+	log.Printf("setting up %s %v", buildpath, args)
 
 	pkg, err := build.Import(buildpath, "", 0)
 	if err != nil {
