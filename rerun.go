@@ -24,10 +24,10 @@ func install(buildpath, lastError string) (installed bool, errorOutput string, e
 
 	err = cmd.Run()
 
-	if bufOut.Len() != 0 {
-		errorOutput = bufOut.String()
+	if bufErr.Len() != 0 {
+		errorOutput = bufErr.String()
 		if errorOutput != lastError {
-			fmt.Print(bufOut)
+			fmt.Print(bufErr)
 		}
 		err = errors.New("compile error")
 		return
