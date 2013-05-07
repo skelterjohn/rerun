@@ -16,25 +16,26 @@ import (
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
 	cmdline := []string{"go", "get", "-v", buildpath}
 
+	// setup the build command, use a shared buffer for both stdOut and stdErr
 	cmd := exec.Command("go", cmdline[1:]...)
-	bufOut := bytes.NewBuffer([]byte{})
-	bufErr := bytes.NewBuffer([]byte{})
-	cmd.Stdout = bufOut
-	cmd.Stderr = bufErr
+	buf := bytes.NewBuffer([]byte{})
+	cmd.Stdout = buf
+	cmd.Stderr = buf
 
 	err = cmd.Run()
 
-	if bufErr.Len() != 0 {
-		errorOutput = bufErr.String()
+	// when there is any output, the go command failed.
+	if buf.Len() > 0 {
+		errorOutput = buf.String()
 		if errorOutput != lastError {
-			fmt.Print(bufErr)
+			fmt.Print(errorOutput)
 		}
 		err = errors.New("compile error")
 		return
 	}
 
-	installed = bufErr.Len() != 0
-
+	// all seems fine
+	installed = true
 	return
 }
 
