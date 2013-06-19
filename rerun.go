@@ -20,7 +20,7 @@ var (
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
-	cmdline := []string{"go", "get", "-v", buildpath}
+	cmdline := []string{"go", "get", buildpath}
 
 	// setup the build command, use a shared buffer for both stdOut and stdErr
 	cmd := exec.Command("go", cmdline[1:]...)
@@ -153,24 +153,9 @@ func rerun(buildpath string, args []string) (err error) {
 	for {
 		// read event from the watcher
 		we, _ := <-watcher.Event
-		var installed bool
-		// re-build
-		installed, errorOutput, _ = install(buildpath, errorOutput)
-		if !installed {
-			continue
-		}
 
 		log.Print(we.Name)
 
-		if *do_tests {
-			passed, _ := test(buildpath)
-			if !passed {
-				continue
-			}
-		}
-
-		// re-run the application
-		runch <- !(*test_only)
 		// close the watcher
 		watcher.Close()
 		// to clean things up: read events from the watcher until events chan is closed.
@@ -185,6 +170,7 @@ func rerun(buildpath string, args []string) (err error) {
 		if err != nil {
 			return
 		}
+
 		// we don't need the errors from the new watcher.
 		// therfore we continiously discard them from the channel to avoid a deadlock.
 		go func(errors chan error) {
@@ -192,6 +178,23 @@ func rerun(buildpath string, args []string) (err error) {
 
 			}
 		}(watcher.Error)
+
+		var installed bool
+		// re-build
+		installed, errorOutput, _ = install(buildpath, errorOutput)
+		if !installed {
+			continue
+		}
+
+		if *do_tests {
+			passed, _ := test(buildpath)
+			if !passed {
+				continue
+			}
+		}
+
+		// re-run the application
+		runch <- !(*test_only)
 	}
 	return
 }
