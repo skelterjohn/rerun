@@ -136,11 +136,22 @@ func rerun(buildpath string, args []string) (err error) {
 		binPath = filepath.Join(pkg.BinDir, binName)
 	}
 
-	runch := run(binName, binPath, args)
+	var runch chan bool
+	if !(*test_only) {
+		runch = run(binName, binPath, args)
+	}
+
+	no_run := false
+	if *do_tests {
+		passed, _ := test(buildpath)
+		if !passed {
+			no_run = true
+		}
+	}
 
 	var errorOutput string
 	_, errorOutput, ierr := install(buildpath, errorOutput)
-	if !(*test_only) && ierr == nil {
+	if !no_run && !(*test_only) && ierr == nil {
 		runch <- true
 	}
 
@@ -172,7 +183,7 @@ func rerun(buildpath string, args []string) (err error) {
 		}
 
 		// we don't need the errors from the new watcher.
-		// therfore we continiously discard them from the channel to avoid a deadlock.
+		// we continiously discard them from the channel to avoid a deadlock.
 		go func(errors chan error) {
 			for _ = range errors {
 
@@ -180,7 +191,7 @@ func rerun(buildpath string, args []string) (err error) {
 		}(watcher.Error)
 
 		var installed bool
-		// re-build
+		// rebuild
 		installed, errorOutput, _ = install(buildpath, errorOutput)
 		if !installed {
 			continue
@@ -193,8 +204,10 @@ func rerun(buildpath string, args []string) (err error) {
 			}
 		}
 
-		// re-run the application
-		runch <- !(*test_only)
+		// rerun. if we're only testing, sending
+		if !(*test_only) {
+			runch <- true
+		}
 	}
 	return
 }
