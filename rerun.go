@@ -168,6 +168,10 @@ func rerun(buildpath string, args []string) (err error) {
 	for {
 		// read event from the watcher
 		we, _ := <-watcher.Event
+		// other files in the directory don't count - we watch the whole thing in case new .go files appear.
+		if filepath.Ext(we.Name) != ".go" {
+			continue
+		}
 
 		log.Print(we.Name)
 
