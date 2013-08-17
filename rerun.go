@@ -19,19 +19,32 @@ import (
 )
 
 var (
-	do_tests  = flag.Bool("test", false, "Run tests before running program.")
-	test_only = flag.Bool("test-only", false, "Only run tests.")
+	do_tests      = flag.Bool("test", false, "Run tests before running program.")
+	test_only     = flag.Bool("test-only", false, "Only run tests.")
+	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
 )
 
+// returns the go command and a shared buffer for stdin and stdout
+// it will add -race if the race detector flag is set
+func goCmd(command string, parameters... string) (cmd *exec.Cmd, buf *bytes.Buffer) {
+    cmdline := []string{command}
+
+    if *race_detector {
+        cmdline = append(cmdline, "-race")
+    }
+
+    cmdline = append(cmdline, parameters...)
+
+    cmd = exec.Command("go", cmdline...)
+    buf = bytes.NewBuffer([]byte{})
+    cmd.Stdout = buf
+    cmd.Stderr = buf
+    return
+}
+
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
-	cmdline := []string{"go", "get", buildpath}
-
-	// setup the build command, use a shared buffer for both stdOut and stdErr
-	cmd := exec.Command("go", cmdline[1:]...)
-	buf := bytes.NewBuffer([]byte{})
-	cmd.Stdout = buf
-	cmd.Stderr = buf
-
+    //set up the go get command
+    cmd, buf := goCmd("get", buildpath)
 	err = cmd.Run()
 
 	// when there is any output, the go command failed.
@@ -50,14 +63,8 @@ func install(buildpath, lastError string) (installed bool, errorOutput string, e
 }
 
 func test(buildpath string) (passed bool, err error) {
-	cmdline := []string{"go", "test", "-v", buildpath}
-
-	// setup the build command, use a shared buffer for both stdOut and stdErr
-	cmd := exec.Command("go", cmdline[1:]...)
-	buf := bytes.NewBuffer([]byte{})
-	cmd.Stdout = buf
-	cmd.Stderr = buf
-
+    //set up the go test command
+    cmd, buf := goCmd("test", "-v", buildpath)
 	err = cmd.Run()
 	passed = err == nil
 
@@ -227,7 +234,7 @@ func main() {
 	}
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--test-only] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--test-only] [--race] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]
