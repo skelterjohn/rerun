@@ -19,18 +19,18 @@ import (
 )
 
 var (
-	do_tests  = flag.Bool("test", false, "Run tests before running program.")
-	test_only = flag.Bool("test-only", false, "Only run tests.")
-    race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
+	do_tests      = flag.Bool("test", false, "Run tests before running program.")
+	test_only     = flag.Bool("test-only", false, "Only run tests.")
+	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
 	cmdline := []string{"go", "get"}
-    
-    if *race_detector {
-        cmdline = append(cmdline, "-race")
-    }
-    cmdline = append(cmdline, buildpath)
+
+	if *race_detector {
+		cmdline = append(cmdline, "-race")
+	}
+	cmdline = append(cmdline, buildpath)
 
 	// setup the build command, use a shared buffer for both stdOut and stdErr
 	cmd := exec.Command("go", cmdline[1:]...)
@@ -58,10 +58,10 @@ func install(buildpath, lastError string) (installed bool, errorOutput string, e
 func test(buildpath string) (passed bool, err error) {
 	cmdline := []string{"go", "test"}
 
-    if *race_detector {
-        cmdline = append(cmdline, "-race")
-    }
-    cmdline = append(cmdline, "-v", buildpath)
+	if *race_detector {
+		cmdline = append(cmdline, "-race")
+	}
+	cmdline = append(cmdline, "-v", buildpath)
 
 	// setup the build command, use a shared buffer for both stdOut and stdErr
 	cmd := exec.Command("go", cmdline[1:]...)
