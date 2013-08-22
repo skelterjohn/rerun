@@ -78,6 +78,7 @@ func run(binName, binPath string, args []string) (runch chan bool) {
 		for relaunch := range runch {
 			if proc != nil {
 				proc.Kill()
+				proc.Wait()
 			}
 			if !relaunch {
 				continue
