@@ -88,7 +88,11 @@ func run(binName, binPath string, args []string) (runch chan bool) {
 		var proc *os.Process
 		for relaunch := range runch {
 			if proc != nil {
-				proc.Kill()
+				err := proc.Signal(os.Interrupt)
+				if err != nil {
+					log.Printf("error on sending signal to process: '%s', will now hard-kill the process\n", err)
+					proc.Kill()
+				}
 				proc.Wait()
 			}
 			if !relaunch {
