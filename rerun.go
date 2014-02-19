@@ -21,7 +21,7 @@ import (
 var (
 	do_tests      = flag.Bool("test", false, "Run tests before running program.")
 	test_only     = flag.Bool("test-only", false, "Only run tests.")
-	build_only    = flag.Bool("build-only", false, "Only run tests.")
+	build_only    = flag.Bool("build-only", false, "Only build program.")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
 )
 
@@ -282,7 +282,7 @@ func main() {
 	}
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--test-only] [--race] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--test-only] [--build-only] [--race] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]
