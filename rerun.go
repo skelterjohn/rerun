@@ -21,6 +21,7 @@ import (
 var (
 	do_tests      = flag.Bool("test", false, "Run tests before running program.")
 	test_only     = flag.Bool("test-only", false, "Only run tests.")
+	build_only    = flag.Bool("build-only", false, "Only build program.")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
 )
 
@@ -76,6 +77,32 @@ func test(buildpath string) (passed bool, err error) {
 		fmt.Println(buf)
 	} else {
 		log.Println("tests passed")
+	}
+
+	return
+}
+
+func gobuild(buildpath string) (passed bool, err error) {
+	cmdline := []string{"go", "build"}
+
+	if *race_detector {
+		cmdline = append(cmdline, "-race")
+	}
+	cmdline = append(cmdline, "-v", buildpath)
+
+	// setup the build command, use a shared buffer for both stdOut and stdErr
+	cmd := exec.Command("go", cmdline[1:]...)
+	buf := bytes.NewBuffer([]byte{})
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+
+	err = cmd.Run()
+	passed = err == nil
+
+	if !passed {
+		fmt.Println(buf)
+	} else {
+		log.Println("build passed")
 	}
 
 	return
@@ -157,7 +184,7 @@ func rerun(buildpath string, args []string) (err error) {
 	}
 
 	var runch chan bool
-	if !(*test_only) {
+	if !(*test_only) && !(*build_only) {
 		runch = run(binName, binPath, args)
 	}
 
@@ -169,9 +196,13 @@ func rerun(buildpath string, args []string) (err error) {
 		}
 	}
 
+	if *build_only {
+		gobuild(buildpath)
+	}
+
 	var errorOutput string
 	_, errorOutput, ierr := install(buildpath, errorOutput)
-	if !no_run && !(*test_only) && ierr == nil {
+	if !no_run && !(*test_only) && !(*build_only) && ierr == nil {
 		runch <- true
 	}
 
@@ -228,8 +259,12 @@ func rerun(buildpath string, args []string) (err error) {
 			}
 		}
 
+		if *build_only {
+			gobuild(buildpath)
+		}
+
 		// rerun. if we're only testing, sending
-		if !(*test_only) {
+		if !(*test_only) && !(*build_only) {
 			runch <- true
 		}
 	}
@@ -242,8 +277,12 @@ func main() {
 		*do_tests = true
 	}
 
+	if *test_only && *build_only {
+		log.Fatal("Cannot combine options --test-only and --build-only.")
+	}
+
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--test-only] [--race] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--test-only] [--build-only] [--race] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]
