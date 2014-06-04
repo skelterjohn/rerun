@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	do_tests      = flag.Bool("test", false, "Run tests before running program.")
-	test_only     = flag.Bool("test-only", false, "Only run tests.")
-	build_only    = flag.Bool("build-only", false, "Only build program.")
+	do_tests      = flag.Bool("test", false, "Run tests (before running program)")
+	do_build      = flag.Bool("build", false, "Build program")
+	never_run     = flag.Bool("no-run", false, "Do not run")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
 )
 
@@ -184,7 +184,7 @@ func rerun(buildpath string, args []string) (err error) {
 	}
 
 	var runch chan bool
-	if !(*test_only) && !(*build_only) {
+	if !(*never_run) {
 		runch = run(binName, binPath, args)
 	}
 
@@ -196,13 +196,13 @@ func rerun(buildpath string, args []string) (err error) {
 		}
 	}
 
-	if *build_only {
+	if *do_build {
 		gobuild(buildpath)
 	}
 
 	var errorOutput string
 	_, errorOutput, ierr := install(buildpath, errorOutput)
-	if !no_run && !(*test_only) && !(*build_only) && ierr == nil {
+	if !no_run && !(*never_run) && ierr == nil {
 		runch <- true
 	}
 
@@ -259,12 +259,12 @@ func rerun(buildpath string, args []string) (err error) {
 			}
 		}
 
-		if *build_only {
+		if *do_build {
 			gobuild(buildpath)
 		}
 
 		// rerun. if we're only testing, sending
-		if !(*test_only) && !(*build_only) {
+		if !(*never_run) {
 			runch <- true
 		}
 	}
@@ -273,16 +273,9 @@ func rerun(buildpath string, args []string) (err error) {
 
 func main() {
 	flag.Parse()
-	if *test_only {
-		*do_tests = true
-	}
-
-	if *test_only && *build_only {
-		log.Fatal("Cannot combine options --test-only and --build-only.")
-	}
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--test-only] [--build-only] [--race] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]
