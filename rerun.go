@@ -196,7 +196,7 @@ func rerun(buildpath string, args []string) (err error) {
 		}
 	}
 
-	if *do_build {
+	if *do_build && !no_run {
 		gobuild(buildpath)
 	}
 
