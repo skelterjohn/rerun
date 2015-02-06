@@ -170,7 +170,7 @@ func rerun(buildpath string, args []string) (err error) {
 		return
 	}
 
-	if pkg.Name != "main" {
+	if !(*do_tests) && pkg.Name != "main" {
 		err = errors.New(fmt.Sprintf("expected package %q, got %q", "main", pkg.Name))
 		return
 	}
