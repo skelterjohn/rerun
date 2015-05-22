@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/howeyc/fsnotify"
+	"github.com/rjeczalik/notify"
 )
 
 var (
@@ -147,30 +147,6 @@ func run(binName, binPath string, args []string) (runch chan bool) {
 	return
 }
 
-func getWatcher(buildpath string) (watcher *fsnotify.Watcher, err error) {
-	watcher, err = fsnotify.NewWatcher()
-	addToWatcher(watcher, buildpath, map[string]bool{})
-	return
-}
-
-func addToWatcher(watcher *fsnotify.Watcher, importpath string, watching map[string]bool) {
-	pkg, err := build.Import(importpath, "", 0)
-	if err != nil {
-		return
-	}
-	if pkg.Goroot {
-		return
-	}
-	log.Printf("watching %s", pkg.Dir)
-	watcher.Watch(pkg.Dir)
-	watching[importpath] = true
-	for _, imp := range pkg.Imports {
-		if !watching[imp] {
-			addToWatcher(watcher, imp, watching)
-		}
-	}
-}
-
 func debounce(changes chan string, f func(file string)) {
 	var changed = ""
 	for {
@@ -271,20 +247,20 @@ func rerun(buildpath string, args []string) (err error) {
 }
 
 func watch(buildpath string, buildCh chan string) error {
-	watcher, err := getWatcher(buildpath)
+	pkg, err := build.Import(buildpath, "", 0)
 	if err != nil {
 		return err
 	}
-	defer watcher.Close()
 
-	// read event from the watcher
-	for {
-		select {
-		case we := <-watcher.Event:
-			buildCh <- we.Name
-		case err := <-watcher.Error:
-			return err
-		}
+	log.Printf("watching %s for file events", pkg.Dir)
+	eventCh := make(chan notify.EventInfo, 10)
+	if err := notify.Watch(pkg.Dir+"/...", eventCh, notify.All); err != nil {
+		return err
+	}
+	defer notify.Stop(eventCh)
+
+	for ev := range eventCh {
+		buildCh <- ev.Path()
 	}
 
 	return nil
