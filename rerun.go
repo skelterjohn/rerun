@@ -6,16 +6,23 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"go/build"
+	"io"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/howeyc/fsnotify"
 )
 
 var (
@@ -23,6 +30,8 @@ var (
 	do_build      = flag.Bool("build", false, "Build program")
 	never_run     = flag.Bool("no-run", false, "Do not run")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
+	tcp_connect   = flag.String("connect", "", "Connect to an event tcp socket (rubygem listen)")
+	interval      = flag.Duration("interval", time.Millisecond*100, "Duration to collect events before rebuild")
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
@@ -111,7 +120,6 @@ func gobuild(buildpath string) (passed bool, err error) {
 func run(binName, binPath string, args []string) (runch chan bool) {
 	runch = make(chan bool)
 	go func() {
-		cmdline := append([]string{binName}, args...)
 		var proc *os.Process
 		for relaunch := range runch {
 			if proc != nil {
@@ -128,7 +136,7 @@ func run(binName, binPath string, args []string) (runch chan bool) {
 			cmd := exec.Command(binPath, args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			log.Print(cmdline)
+			log.Printf("running %s [%s]", binPath, strings.Join(args, " "))
 			err := cmd.Start()
 			if err != nil {
 				log.Printf("error on starting process: '%s'\n", err)
@@ -153,11 +161,29 @@ func addToWatcher(watcher *fsnotify.Watcher, importpath string, watching map[str
 	if pkg.Goroot {
 		return
 	}
+	log.Printf("watching %s", pkg.Dir)
 	watcher.Watch(pkg.Dir)
 	watching[importpath] = true
 	for _, imp := range pkg.Imports {
 		if !watching[imp] {
 			addToWatcher(watcher, imp, watching)
+		}
+	}
+}
+
+func debounce(changes chan string, f func(file string)) {
+	var changed = ""
+	for {
+		select {
+		case file := <-changes:
+			if filepath.Ext(file) == ".go" {
+				changed = file
+			}
+		case <-time.After(*interval):
+			if changed != "" {
+				f(changed)
+				changed = ""
+			}
 		}
 	}
 }
@@ -200,62 +226,35 @@ func rerun(buildpath string, args []string) (err error) {
 		gobuild(buildpath)
 	}
 
-	var errorOutput string
-	_, errorOutput, ierr := install(buildpath, errorOutput)
+	_, errorOutput, ierr := install(buildpath, "")
 	if !no_run && !(*never_run) && ierr == nil {
 		runch <- true
 	}
 
-	var watcher *fsnotify.Watcher
-	watcher, err = getWatcher(buildpath)
-	if err != nil {
-		return
-	}
-
-	for {
-		// read event from the watcher
-		we, _ := <-watcher.Event
-		// other files in the directory don't count - we watch the whole thing in case new .go files appear.
-		if filepath.Ext(we.Name) != ".go" {
-			continue
-		}
-
-		log.Print(we.Name)
-
-		// close the watcher
-		watcher.Close()
-		// to clean things up: read events from the watcher until events chan is closed.
-		go func(events chan *fsnotify.FileEvent) {
-			for _ = range events {
-
+	changes := make(chan string, 10)
+	go func() {
+		if *tcp_connect != "" {
+			if err := connect(*tcp_connect, changes); err != nil {
+				log.Fatal(err)
 			}
-		}(watcher.Event)
-		// create a new watcher
-		log.Println("rescanning")
-		watcher, err = getWatcher(buildpath)
-		if err != nil {
+		} else {
+			if err = watch(buildpath, changes); err != nil {
+				log.Fatal(err)
+			}
+		}
+		close(changes)
+	}()
+
+	debounce(changes, func(file string) {
+		log.Printf("%s changed, rebuilding", file)
+		if installed, _, _ := install(buildpath, errorOutput); !installed {
 			return
-		}
-
-		// we don't need the errors from the new watcher.
-		// we continiously discard them from the channel to avoid a deadlock.
-		go func(errors chan error) {
-			for _ = range errors {
-
-			}
-		}(watcher.Error)
-
-		var installed bool
-		// rebuild
-		installed, errorOutput, _ = install(buildpath, errorOutput)
-		if !installed {
-			continue
 		}
 
 		if *do_tests {
 			passed, _ := test(buildpath)
 			if !passed {
-				continue
+				return
 			}
 		}
 
@@ -263,19 +262,71 @@ func rerun(buildpath string, args []string) (err error) {
 			gobuild(buildpath)
 		}
 
-		// rerun. if we're only testing, sending
 		if !(*never_run) {
 			runch <- true
 		}
+	})
+
+	return nil
+}
+
+func watch(buildpath string, buildCh chan string) error {
+	watcher, err := getWatcher(buildpath)
+	if err != nil {
+		return err
 	}
-	return
+	defer watcher.Close()
+
+	// read event from the watcher
+	for {
+		select {
+		case we := <-watcher.Event:
+			buildCh <- we.Name
+		case err := <-watcher.Error:
+			return err
+		}
+	}
+
+	return nil
+}
+
+func connect(address string, buildCh chan string) error {
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("connected to %s for remote file events", address)
+
+	for {
+		// https://github.com/guard/listen/blob/master/lib/listen/tcp/message.rb
+		var length uint32
+		err := binary.Read(conn, binary.BigEndian, &length)
+		if err != nil {
+			return err
+		}
+
+		var buf = make([]byte, length)
+		if _, err := io.ReadFull(conn, buf); err != nil {
+			return err
+		}
+
+		var msg []interface{}
+		if err := json.Unmarshal(buf, &msg); err != nil {
+			return err
+		}
+
+		buildCh <- msg[3].(string)
+	}
+
+	return nil
 }
 
 func main() {
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] [--listen ip:port] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]
