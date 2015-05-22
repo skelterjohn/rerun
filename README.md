@@ -17,4 +17,4 @@ Flag `--no-run` omits actually running the program. This is useful if you only w
 
 Flag `--race` will test/build/run the program with race detection enabled.
 
-Flag `--listen host:port` will connect to a remote socket that sends file system events. See https://github.com/guard/listen#forwarding-file-events-over-tcp for more details.
+Flag `--connect host:port` will connect to a remote socket that sends file system events. See https://github.com/guard/listen#forwarding-file-events-over-tcp for more details.
