@@ -246,12 +246,21 @@ func rerun(buildpath string, args []string) (err error) {
 	return nil
 }
 
+var watching = map[string]bool{}
+
 func watch(buildpath string, buildCh chan string) error {
 	pkg, err := build.Import(buildpath, "", 0)
 	if err != nil {
 		return err
 	}
-
+	if pkg.Goroot {
+		return nil
+	}
+	for _, imp := range pkg.Imports {
+		if _, exists := watching[imp]; !exists {
+			watch(imp, buildCh)
+		}
+	}
 	log.Printf("watching %s for file events", pkg.Dir)
 	eventCh := make(chan notify.EventInfo, 10)
 	if err := notify.Watch(pkg.Dir+"/...", eventCh, notify.All); err != nil {
