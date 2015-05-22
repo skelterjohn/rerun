@@ -326,7 +326,7 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] [--listen ip:port] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] [--connect ip:port] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]
