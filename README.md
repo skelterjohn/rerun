@@ -16,3 +16,5 @@ Flag `--build` makes rerun execute `go build` in the local folder, creating a ex
 Flag `--no-run` omits actually running the program. This is useful if you only wish to test and/or build.
 
 Flag `--race` will test/build/run the program with race detection enabled.
+
+Flag `--connect host:port` will connect to a remote socket that sends file system events. See https://github.com/guard/listen#forwarding-file-events-over-tcp for more details.
