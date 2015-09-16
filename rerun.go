@@ -9,13 +9,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"go/build"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
+
+	"github.com/howeyc/fsnotify"
 )
 
 var (
@@ -176,12 +178,15 @@ func rerun(buildpath string, args []string) (err error) {
 	}
 
 	_, binName := path.Split(buildpath)
+
 	var binPath string
 	if gobin := os.Getenv("GOBIN"); gobin != "" {
 		binPath = filepath.Join(gobin, binName)
 	} else {
 		binPath = filepath.Join(pkg.BinDir, binName)
 	}
+
+	binPath = strings.Replace(binPath, buildpath, filepath.Base(binName), -1)
 
 	var runch chan bool
 	if !(*never_run) {
