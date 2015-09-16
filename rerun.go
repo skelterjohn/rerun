@@ -15,7 +15,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
+	"strings"
 
 	"github.com/howeyc/fsnotify"
 )
@@ -179,16 +179,14 @@ func rerun(buildpath string, args []string) (err error) {
 
 	_, binName := path.Split(buildpath)
 
-	if runtime.GOOS == "windows" {
-		binName = fmt.Sprintf("%s.exe", binName)
-	}
-
 	var binPath string
 	if gobin := os.Getenv("GOBIN"); gobin != "" {
 		binPath = filepath.Join(gobin, binName)
 	} else {
 		binPath = filepath.Join(pkg.BinDir, binName)
 	}
+
+	binPath = strings.Replace(binPath, buildpath, filepath.Base(binName), -1)
 
 	var runch chan bool
 	if !(*never_run) {
