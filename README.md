@@ -16,3 +16,21 @@ Flag `--build` makes rerun execute `go build` in the local folder, creating a ex
 Flag `--no-run` omits actually running the program. This is useful if you only wish to test and/or build.
 
 Flag `--race` will test/build/run the program with race detection enabled.
+
+# Examples #
+
+## relative import path ##
+
+Directory Structure:
+```
+├── /go/src/github.com/
+│   ├── user
+│   │   ├── repo
+│   │   ├── another_repo
+```
+
+`/go/src/github.com/user/repo> rerun github.com/user/repo`
+
+`/go/src/github.com/user/repo> rerun .`
+
+`/go/src/github.com/user/repo> rerun ../another_repo`
