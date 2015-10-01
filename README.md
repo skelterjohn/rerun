@@ -19,7 +19,7 @@ Flag `--race` will test/build/run the program with race detection enabled.
 
 # Examples #
 
-## <import path\> ##
+## relative import path ##
 
 Directory Structure:
 ```
