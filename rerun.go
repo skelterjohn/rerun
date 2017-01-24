@@ -9,13 +9,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"go/build"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 var (
@@ -153,7 +154,7 @@ func addToWatcher(watcher *fsnotify.Watcher, importpath string, watching map[str
 	if pkg.Goroot {
 		return
 	}
-	watcher.Watch(pkg.Dir)
+	watcher.Add(pkg.Dir)
 	watching[importpath] = true
 	for _, imp := range pkg.Imports {
 		if !watching[imp] {
@@ -214,7 +215,7 @@ func rerun(buildpath string, args []string) (err error) {
 
 	for {
 		// read event from the watcher
-		we, _ := <-watcher.Event
+		we, _ := <-watcher.Events
 		// other files in the directory don't count - we watch the whole thing in case new .go files appear.
 		if filepath.Ext(we.Name) != ".go" {
 			continue
@@ -225,11 +226,11 @@ func rerun(buildpath string, args []string) (err error) {
 		// close the watcher
 		watcher.Close()
 		// to clean things up: read events from the watcher until events chan is closed.
-		go func(events chan *fsnotify.FileEvent) {
+		go func(events chan fsnotify.Event) {
 			for _ = range events {
 
 			}
-		}(watcher.Event)
+		}(watcher.Events)
 		// create a new watcher
 		log.Println("rescanning")
 		watcher, err = getWatcher(buildpath)
@@ -243,7 +244,7 @@ func rerun(buildpath string, args []string) (err error) {
 			for _ = range errors {
 
 			}
-		}(watcher.Error)
+		}(watcher.Errors)
 
 		var installed bool
 		// rebuild
