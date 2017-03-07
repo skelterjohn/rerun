@@ -23,6 +23,7 @@ var (
 	do_build      = flag.Bool("build", false, "Build program")
 	never_run     = flag.Bool("no-run", false, "Do not run")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
+	outfile = flag.String("outfile", "", "Set a different output file path (excluding file name); \"getwd\" == current working directory")
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
@@ -177,10 +178,29 @@ func rerun(buildpath string, args []string) (err error) {
 
 	_, binName := path.Split(buildpath)
 	var binPath string
-	if gobin := os.Getenv("GOBIN"); gobin != "" {
-		binPath = filepath.Join(gobin, binName)
+	
+	if *outfile != "" {
+		if *outfile == "getwd" {
+			p, err := os.Getwd()
+			if err == nil {
+				binPath = filepath.Join(p, binName)
+			} else {
+				panic("Can't usw getwd: " + err.Error())
+			}
+		} else {
+			p, err := filepath.Abs(*outfile)
+			if err == nil {
+				binPath = filepath.Join(p, binName)
+			} else {
+				panic("Can't usw abs: " + err.Error())
+			}
+		}
 	} else {
-		binPath = filepath.Join(pkg.BinDir, binName)
+		if gobin := os.Getenv("GOBIN"); gobin != "" {
+			binPath = filepath.Join(gobin, binName)
+		} else {
+			binPath = filepath.Join(pkg.BinDir, binName)
+		}
 	}
 
 	var runch chan bool
@@ -275,7 +295,7 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] [--outfile <path>] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]
