@@ -11,7 +11,7 @@ the target's non-GOROOT dependencies.
 
 When using flag `--test`, rerun executes `go test`. If tests fail, rerun will not continue to build and/or run the program.
 
-Flag `--build` makes rerun execute `go build` in the local folder, creating a executable.
+Flag `--build` makes rerun execute `go build` in the local folder, creating an executable.
 
 Flag `--no-run` omits actually running the program. This is useful if you only wish to test and/or build.
 
