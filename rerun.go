@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 )
 
 var (
@@ -182,6 +183,15 @@ func rerun(buildpath string, args []string) (err error) {
 	} else {
 		binPath = filepath.Join(pkg.BinDir, binName)
 	}
+	if runtime.GOOS == "windows" {
+		// under my windows go 1.3, the executables
+		// end up directly under $GOPATH/bin
+		//   not $GOPATH/bin/<import path>
+		binBase := filepath.Base(binName)
+		binPath = filepath.Join(pkg.BinDir, binBase)
+	}
+	
+
 
 	var runch chan bool
 	if !(*never_run) {
