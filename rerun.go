@@ -9,20 +9,22 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"go/build"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+
+	"github.com/howeyc/fsnotify"
 )
 
 var (
-	do_tests      = flag.Bool("test", false, "Run tests (before running program)")
-	do_build      = flag.Bool("build", false, "Build program")
-	never_run     = flag.Bool("no-run", false, "Do not run")
-	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
+	do_tests                = flag.Bool("test", false, "Run tests (before running program)")
+	do_build                = flag.Bool("build", false, "Build program")
+	never_run               = flag.Bool("no-run", false, "Do not run")
+	race_detector           = flag.Bool("race", false, "Run program and tests with the race detector")
+	recursivetests_detector = flag.Bool("recursive-tests", false, "Recursively test the given package via ./...")
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
@@ -62,6 +64,11 @@ func test(buildpath string) (passed bool, err error) {
 	if *race_detector {
 		cmdline = append(cmdline, "-race")
 	}
+
+	if *recursivetests_detector {
+		buildpath = buildpath + "/..."
+	}
+
 	cmdline = append(cmdline, "-v", buildpath)
 
 	// setup the build command, use a shared buffer for both stdOut and stdErr
@@ -275,7 +282,7 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] <import path> [arg]*")
+		log.Fatal("Usage: rerun [--test] [--recursive-tests] [--no-run] [--build] [--race] <import path> [arg]*")
 	}
 
 	buildpath := flag.Args()[0]

@@ -1,6 +1,14 @@
+# rerun for golang (original from: https://github.com/skelterjohn/rerun)
+
+## This forks specialties
+
+This fork extends rerun by the `--recursive-tests` feature, which will test the given buildpath and all its underlying packages by running `go test <buildpath>/...`. Enjoy!
+
+## Usage
+
 Use like ```rerun github.com/skelterjohn/go.uik/uiktest```
 
-Usage: ```rerun [--test] [--build] [--race] [--no-run] <import path> [arg]*```
+Usage: ```rerun [--test] [--recursive-tests] [--build] [--race] [--no-run] <import path> [arg]*```
 
 For any go executable in a normal GOPATH workspace, rerun will watch its source,
 rebuild, retest, and rerun. As long as ```go install <import path>``` works,
