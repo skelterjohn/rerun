@@ -9,18 +9,20 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"go/build"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+
+	"github.com/howeyc/fsnotify"
 )
 
 var (
 	do_tests      = flag.Bool("test", false, "Run tests (before running program)")
 	do_build      = flag.Bool("build", false, "Build program")
+	build_bin     = flag.String("bin", "", "Provide a specific path for the build binary")
 	never_run     = flag.Bool("no-run", false, "Do not run")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
 )
@@ -83,11 +85,16 @@ func test(buildpath string) (passed bool, err error) {
 }
 
 func gobuild(buildpath string) (passed bool, err error) {
-	cmdline := []string{"go", "build"}
+	cmdline := []string{"go", "build", "-i"}
 
 	if *race_detector {
 		cmdline = append(cmdline, "-race")
 	}
+
+	if *build_bin != "" {
+		cmdline = append(cmdline, "-o", *build_bin)
+	}
+
 	cmdline = append(cmdline, "-v", buildpath)
 
 	// setup the build command, use a shared buffer for both stdOut and stdErr
