@@ -279,10 +279,15 @@ func rerun(buildpath string, args []string) (err error) {
 }
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS] IMPORT_PATH [ARGS]\nOptions:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] <import path> [arg]*")
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	buildpath := flag.Args()[0]
