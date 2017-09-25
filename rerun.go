@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 
 	"github.com/howeyc/fsnotify"
 )
@@ -22,9 +23,10 @@ import (
 var (
 	do_tests      = flag.Bool("test", false, "Run tests (before running program)")
 	do_build      = flag.Bool("build", false, "Build program")
-	build_bin     = flag.String("bin", "", "Provide a specific path for the build binary")
 	never_run     = flag.Bool("no-run", false, "Do not run")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
+	build_bin     = flag.String("bin", "", "Provide a specific path for the build binary")
+	ignore_re_str = flag.String("ignore", "", "Regexp pattern of filenames to ignore")
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
@@ -219,11 +221,18 @@ func rerun(buildpath string, args []string) (err error) {
 		return
 	}
 
+	// construct regexp obj, unused on error (assuming Compile returns nil if so).
+	var ignoreRe *regexp.Regexp
+	ignoreRe, err = regexp.Compile(*ignore_re_str)
+	if err != nil {
+		log.Print(err)
+	}
 	for {
 		// read event from the watcher
 		we, _ := <-watcher.Event
 		// other files in the directory don't count - we watch the whole thing in case new .go files appear.
-		if filepath.Ext(we.Name) != ".go" {
+		if fn := filepath.Base(we.Name) ;
+		(ignoreRe != nil && ignoreRe.FindString(fn) != "") || filepath.Ext(fn) != ".go" {
 			continue
 		}
 
