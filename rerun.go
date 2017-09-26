@@ -9,13 +9,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/howeyc/fsnotify"
 	"go/build"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
+
+	"github.com/howeyc/fsnotify"
 )
 
 var (
@@ -23,6 +25,8 @@ var (
 	do_build      = flag.Bool("build", false, "Build program")
 	never_run     = flag.Bool("no-run", false, "Do not run")
 	race_detector = flag.Bool("race", false, "Run program and tests with the race detector")
+	build_bin     = flag.String("bin", "", "Provide a specific path for the build binary")
+	ignore_re_str = flag.String("ignore", "", "Regexp pattern of filenames to ignore")
 )
 
 func install(buildpath, lastError string) (installed bool, errorOutput string, err error) {
@@ -83,11 +87,16 @@ func test(buildpath string) (passed bool, err error) {
 }
 
 func gobuild(buildpath string) (passed bool, err error) {
-	cmdline := []string{"go", "build"}
+	cmdline := []string{"go", "build", "-i"}
 
 	if *race_detector {
 		cmdline = append(cmdline, "-race")
 	}
+
+	if *build_bin != "" {
+		cmdline = append(cmdline, "-o", *build_bin)
+	}
+
 	cmdline = append(cmdline, "-v", buildpath)
 
 	// setup the build command, use a shared buffer for both stdOut and stdErr
@@ -212,11 +221,17 @@ func rerun(buildpath string, args []string) (err error) {
 		return
 	}
 
+	// construct regexp obj, unused on error (assuming Compile returns nil if so).
+	var ignoreRe *regexp.Regexp
+	ignoreRe, err = regexp.Compile(*ignore_re_str)
+	if err != nil {
+		log.Print(err)
+	}
 	for {
 		// read event from the watcher
 		we, _ := <-watcher.Event
 		// other files in the directory don't count - we watch the whole thing in case new .go files appear.
-		if filepath.Ext(we.Name) != ".go" {
+		if fn := filepath.Base(we.Name); (ignoreRe != nil && ignoreRe.FindString(fn) != "") || filepath.Ext(fn) != ".go" {
 			continue
 		}
 
@@ -272,10 +287,15 @@ func rerun(buildpath string, args []string) (err error) {
 }
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS] IMPORT_PATH [ARGS]\nOptions:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		log.Fatal("Usage: rerun [--test] [--no-run] [--build] [--race] <import path> [arg]*")
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	buildpath := flag.Args()[0]
